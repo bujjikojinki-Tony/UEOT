@@ -16,33 +16,49 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7fa;padding:12px;
 @media(max-width:900px){main{grid-template-columns:1fr}}
 </style></head>
 <body><header><strong>UEOT · Engineering Object Browser</strong>
-<small>合成数据演示 · 不连接真实工程系统 · 不构成工程批准</small></header>
+<small>合成数据演示 · 本地 HTTP Runtime 联动 · 不构成工程批准</small></header>
 <main><aside><h2>多结构导航</h2><div id="modes" class="tree"></div><h3>对象列表</h3><div id="objects" class="tree"></div></aside>
 <section><h2>工程对象详情</h2><span class="pill">SYNTHETIC ONLY</span><div id="details"></div>
 <h3>工程决策链</h3><pre id="decision"></pre></section>
 <aside><h2>语义与证据门控</h2><div id="gates"></div><h3>说明</h3>
-<p class="muted">所有对象、数值和证据引用均为合成演示。该页面不调用 Runtime API；后续必须以受控 API 替换静态数据。</p></aside></main>
+<p class="muted">所有对象、数值和证据引用均为合成演示。通过本地只读 HTTP API 访问合成 Runtime；不包含真实工程数据或正式审批。</p></aside></main>
 <script>
 "use strict";
 const objects=[
 {id:"SSC-001",name:"安全注入泵 A",pbs:"泵组件",fbs:"安全注入功能",gbs:"RIS 系统",wbs:"设计审查",code:"RIS-P001",flow:"505 m³/h",basis:"BL-03",config:"CFG-M6",evidence:"EV-01",authority:"AU-01"},
 {id:"VALVE-01",name:"出口隔离阀",pbs:"阀门组件",fbs:"流路隔离功能",gbs:"RIS 系统",wbs:"变更评估",code:"RIS-V001",flow:"—",basis:"TM-01（示例）",config:"CFG-M6",evidence:"EV-02（未验证）",authority:"待审查"}
 ];
-let mode="pbs", selected=objects[0].id;
+let mode="pbs", selected=objects[0].id;\nlet liveCatalog=objects, liveResult=null, liveImpact=null, apiStatus="连接中";
 const modeNames={pbs:"PBS 产品结构",fbs:"FBS 功能结构",gbs:"GBS 系统结构",wbs:"WBS 工作结构"};
 function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
 function render(){
  const modes=document.getElementById("modes");modes.replaceChildren();
  for(const [key,name] of Object.entries(modeNames)){const b=el("button",name);b.type="button";b.setAttribute("aria-pressed",String(mode===key));b.onclick=()=>{mode=key;render()};modes.append(b)}
  const tree=document.getElementById("objects");tree.replaceChildren();
- for(const obj of objects){const b=el("button",obj[mode]+" / "+obj.name);b.type="button";b.setAttribute("aria-pressed",String(selected===obj.id));b.onclick=()=>{selected=obj.id;render()};tree.append(b)}
- const o=objects.find(x=>x.id===selected),detail=document.getElementById("details");detail.replaceChildren();
+ for(const obj of liveCatalog){const b=el("button",obj[mode]+" / "+obj.name);b.type="button";b.setAttribute("aria-pressed",String(selected===obj.id));b.onclick=()=>{selected=obj.id;refreshObject()};tree.append(b)}
+ const o=liveCatalog.find(x=>x.id===selected),detail=document.getElementById("details");detail.replaceChildren();
  detail.append(el("h3",o.name));const dl=document.createElement("dl");
- for(const [key,val] of Object.entries({UEO:o.id,编码:o.code,配置:o.config,基线:o.basis,设计额定流量:o.flow,证据:o.evidence,权威:o.authority})){dl.append(el("dt",key),el("dd",val))}
+ for(const [key,val] of Object.entries({UEO:o.id,编码:o.code,配置:o.config,基线:o.basis,属性:o.property||"—",查询值:liveResult?.data?.value??"—",证据:liveResult?.data?.evidenceRefs?.join(", ")||"未确认",权威:liveResult?.data?.authority||"未确认"})){dl.append(el("dt",key),el("dd",val))}
  detail.append(dl);
  document.getElementById("decision").textContent="GraphReachability → PotentialImpact → Human Review → ConfirmedImpact\n当前状态：仅演示结构，未执行影响推理或人工审批。";
  const gates=document.getElementById("gates");gates.replaceChildren();
- gates.append(el("p","身份：合成对象引用"),el("p","Basis：仅示例，无真实一致性校验"),el("p","Evidence：未接入文档仓库"),el("p","Authority：未验证批准链"),el("p","结论：NO_DEFINITIVE_CLAIM"));
+ gates.append(el("p","API："+apiStatus),el("p","状态："+(liveResult?.decisionState||"NO_DEFINITIVE_CLAIM")),el("p","原因："+(liveResult?.reason||"—")),el("p","审计引用："+(liveResult?.auditRef||"—")),el("p","合成数据：是"));
 }
-render();
+async function refreshObject(){
+ const o=liveCatalog.find(x=>x.id===selected);
+ if(!o)return;
+ try{
+  const qs=new URLSearchParams({code:o.code,property:o.property||"RatedFlow",configuration:"M6",validAt:"2026-06-15"});
+  const [q,i]=await Promise.all([fetch("/api/query?"+qs),fetch("/api/impact?"+new URLSearchParams({root:o.id}))]);
+  if(!q.ok||!i.ok)throw new Error("HTTP "+q.status+"/"+i.status);
+  liveResult=await q.json();liveImpact=await i.json();apiStatus="本地 Runtime 已连接";
+ }catch(e){liveResult=null;liveImpact=null;apiStatus="不可用："+e.message}
+ render();
+}
+async function boot(){
+ try{const r=await fetch("/api/objects");if(!r.ok)throw new Error("HTTP "+r.status);
+ const payload=await r.json();liveCatalog=payload.objects;selected=liveCatalog[0]?.id;await refreshObject();
+ }catch(e){apiStatus="API 不可用（请使用 python -m runtime.http_demo 启动）";render()}
+}
+boot();
 </script></body></html>
