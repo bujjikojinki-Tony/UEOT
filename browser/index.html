@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UEOT Browser · Synthetic Demo</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#152536;background:#f4f7fa}
+*{box-sizing:border-box}body{margin:0}header{padding:18px 24px;background:#122e46;color:#fff}
+header small{display:block;color:#c6dce9;margin-top:5px}main{display:grid;grid-template-columns:260px minmax(0,1fr) 280px;gap:16px;padding:16px}
+section,aside{background:white;border:1px solid #dce5ed;border-radius:12px;padding:18px}
+button{cursor:pointer;background:#e8f1f8;border:1px solid #c7dbe8;border-radius:7px;padding:8px;margin:4px 0;text-align:left}
+button:focus-visible{outline:3px solid #3b82f6}button[aria-pressed=true]{background:#d0e8ff}
+h2{font-size:17px;margin:0 0 16px}h3{font-size:14px;margin:18px 0 8px}
+dl{display:grid;grid-template-columns:130px 1fr;gap:9px;font-size:14px}dt{color:#586b79}dd{margin:0}
+.status{color:#9a4e00;font-weight:700}.muted{color:#5d6f7c;font-size:13px}
+.tree{display:flex;flex-direction:column}.pill{display:inline-block;background:#fff1d6;padding:4px 9px;border-radius:99px;font-size:12px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7fa;padding:12px;border-radius:8px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+</style></head>
+<body><header><strong>UEOT · Engineering Object Browser</strong>
+<small>合成数据演示 · 不连接真实工程系统 · 不构成工程批准</small></header>
+<main><aside><h2>多结构导航</h2><div id="modes" class="tree"></div><h3>对象列表</h3><div id="objects" class="tree"></div></aside>
+<section><h2>工程对象详情</h2><span class="pill">SYNTHETIC ONLY</span><div id="details"></div>
+<h3>工程决策链</h3><pre id="decision"></pre></section>
+<aside><h2>语义与证据门控</h2><div id="gates"></div><h3>说明</h3>
+<p class="muted">所有对象、数值和证据引用均为合成演示。该页面不调用 Runtime API；后续必须以受控 API 替换静态数据。</p></aside></main>
+<script>
+"use strict";
+const objects=[
+{id:"SSC-001",name:"安全注入泵 A",pbs:"泵组件",fbs:"安全注入功能",gbs:"RIS 系统",wbs:"设计审查",code:"RIS-P001",flow:"505 m³/h",basis:"BL-03",config:"CFG-M6",evidence:"EV-01",authority:"AU-01"},
+{id:"VALVE-01",name:"出口隔离阀",pbs:"阀门组件",fbs:"流路隔离功能",gbs:"RIS 系统",wbs:"变更评估",code:"RIS-V001",flow:"—",basis:"TM-01（示例）",config:"CFG-M6",evidence:"EV-02（未验证）",authority:"待审查"}
+];
+let mode="pbs", selected=objects[0].id;
+const modeNames={pbs:"PBS 产品结构",fbs:"FBS 功能结构",gbs:"GBS 系统结构",wbs:"WBS 工作结构"};
+function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+function render(){
+ const modes=document.getElementById("modes");modes.replaceChildren();
+ for(const [key,name] of Object.entries(modeNames)){const b=el("button",name);b.type="button";b.setAttribute("aria-pressed",String(mode===key));b.onclick=()=>{mode=key;render()};modes.append(b)}
+ const tree=document.getElementById("objects");tree.replaceChildren();
+ for(const obj of objects){const b=el("button",obj[mode]+" / "+obj.name);b.type="button";b.setAttribute("aria-pressed",String(selected===obj.id));b.onclick=()=>{selected=obj.id;render()};tree.append(b)}
+ const o=objects.find(x=>x.id===selected),detail=document.getElementById("details");detail.replaceChildren();
+ detail.append(el("h3",o.name));const dl=document.createElement("dl");
+ for(const [key,val] of Object.entries({UEO:o.id,编码:o.code,配置:o.config,基线:o.basis,设计额定流量:o.flow,证据:o.evidence,权威:o.authority})){dl.append(el("dt",key),el("dd",val))}
+ detail.append(dl);
+ document.getElementById("decision").textContent="GraphReachability → PotentialImpact → Human Review → ConfirmedImpact\n当前状态：仅演示结构，未执行影响推理或人工审批。";
+ const gates=document.getElementById("gates");gates.replaceChildren();
+ gates.append(el("p","身份：合成对象引用"),el("p","Basis：仅示例，无真实一致性校验"),el("p","Evidence：未接入文档仓库"),el("p","Authority：未验证批准链"),el("p","结论：NO_DEFINITIVE_CLAIM"));
+}
+render();
+</script></body></html>
